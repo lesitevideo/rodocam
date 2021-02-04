@@ -12,6 +12,6 @@ Hardware:
 - 1 x hc-SR501 PIR motion sensor = 3€
 <img src="hc-SR501.jpg" width="200">
 
-- 3 x male->male dupont wires
+- 3 x female->female dupont wires
 
 - 1 x USB-C 5v 3a alim.
