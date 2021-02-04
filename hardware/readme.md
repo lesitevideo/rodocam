@@ -17,3 +17,9 @@ Hardware:
 
 - 1 x USB-C 5v 3a alim.
 <img src="alim5v3a.jpg" width="200">
+
+1. plug PIR vcc to RPI pin#4 (5v power)
+2. plug PIR gnd to RPI pin#6 (Ground)
+3. plug PIR signal to RPI pin#11 (GPIO 17)
+4. plug camera to raspberry hdmi in
+5. plug raspberry to 5v power
