@@ -6,3 +6,6 @@
 4. `git clone https://github.com/lesitevideo/rodocam/`
 5. `cd rodocam`
 6. `npm install`
+
+usage :
+`node index.js`
