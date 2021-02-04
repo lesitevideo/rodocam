@@ -1,0 +1,29 @@
+{ 
+    "device": {
+		"id": 1,
+		"pir_pin": 17
+	},
+	"camera": [
+    	"-w", "1200",
+    	"-h", "900",
+    	"-q", "60",
+		"-t", "1500",
+		"-o", "-"
+	],
+	"email": {
+		"service": "gmail",
+		"auth": {
+			"user": "<GOOGLE_ACCOUNT>",
+			"pass": "<GOOGLE_ACCOUNT_PASSWORD>"
+		}
+	},
+	"mailOptions": {
+		"from": "<GMAIL_ADDRESS>",
+		"to": "toto@toto.com, jojo@lulu.com",
+		"subject": "Alerte intrusion ",
+		"text": ""
+	},
+	"server": {
+		"url": "<YOUR_URL>/rodocam/"
+	}
+}

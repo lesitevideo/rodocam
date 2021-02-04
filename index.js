@@ -1,63 +1,15 @@
-/*
-Status du dongle 4G :
-http://192.168.100.1/api/monitoring/status
-http://192.168.100.1/api/wlan/station-information
-
-SMS API :
-http://192.168.100.1/api/sms/sms-count :
-<?xml version="1.0" encoding="utf-8"?>
-<response>
-	<LocalUnread>1</LocalUnread>
-	<LocalInbox>2</LocalInbox>
-	<LocalOutbox>0</LocalOutbox>
-	<LocalDraft>0</LocalDraft>
-	<LocalDeleted>0</LocalDeleted>
-	<SimUnread>0</SimUnread>
-	<SimInbox>0</SimInbox>
-	<SimOutbox>0</SimOutbox>
-	<SimDraft>0</SimDraft>
-	<LocalMax>500</LocalMax>
-	<SimMax>30</SimMax>
-	<SimUsed>0</SimUsed>
-	<NewMsg>0</NewMsg>
-</response>
-
-http://192.168.100.1/api/monitoring/check-notifications :
-<?xml version="1.0" encoding="UTF-8"?>
-<response>
-<UnreadMessage>1</UnreadMessage>
-<SmsStorageFull>0</SmsStorageFull>
-<OnlineUpdateStatus>13</OnlineUpdateStatus>
-</response>
-
-http://192.168.100.1/api/sms/send-sms
-<?xml version="1.0" encoding="UTF-8"?>
-<request>
-	<Index>-1</Index>
-	<Phones><Phone>0661xxxxxx</Phone></Phones>
-	<Sca></Sca>
-	<Content>ezrzerzerzerezr</Content>
-	<Length>15</Length>
-	<Reserved>1</Reserved>
-	<Date>2021-01-28 20:13:11</Date>
-</request>
-
-*/
-
 var Gpio = require('onoff').Gpio;
 var child_process = require('child_process');
 var request = require('request');
-var RaspiCam = require("raspicam");
 var fs = require('fs');
 var nodemailer = require('nodemailer');
 
-
+var proc;
 var pir;  
 var transport;
 var timestamp = 'aujourdhui';
 var mailOptions;
 var shooting = false;
-var camera;
 var settings;
 
 fs.readFile('./settings.json', (err, data) => {
@@ -67,76 +19,121 @@ fs.readFile('./settings.json', (err, data) => {
 });
 
 function init(){
-	
 	pir = new Gpio( settings.device.pir_pin, 'in', 'both' );
-	transport = nodemailer.createTransport( settings.email );	
-	camera = new RaspiCam( settings.camera );
-	mailOptions = settings.mailOptions;
-	
 	pir.watch(function(err, value) {
 	  if (err) exit();
 
 		if(value == 1){
 			if(!shooting){
-				console.log( "Intruder detected, shooting" );
+				console.log( "Mouvement" );
 				shooting = true;
-
-				// 1 prendre la photo
-				camera.start();
-
+				// snap photo
+				StartCapture();	
 			}
 		} else {
 			//console.log( "pas de mouvement" );
 		}
-
 	});
+}
 
-	camera.on("start", function(){
-		console.log( "start" );
-	});
+function StartCapture(){
 
-	camera.on("read", function(err, timestamp, filename){ 
-		//console.log( "read" );
-	});
-
-	camera.on("stop", function(){
-		//console.log( "stop" );
-	});
-
-	camera.on("exit", function(){
-		console.log( "fin pic, sending mail..." );
-
-		const dtFormat = new Intl.DateTimeFormat('fr-FR', {
-		  timeStyle: 'medium',
-		  dateStyle: 'medium'
-		});
-
-		timestamp = dtFormat.format( new Date() );	
-		
-		mailOptions.subject = "Alerte intrusion " + timestamp;
-		
-		mailOptions.attachments[0].path =  __dirname + '/' + settings.camera.output;
-		
-		//console.log( mailOptions );
-		//shooting = false;
-		//return false;
-		
-		
-		// sendmail
-		transport.sendMail(mailOptions, (error, info) => {
-			if (error) {
-				return console.error(error);
+	var args = settings.camera;
+	
+    var blob;
+    var SOI = false;
+    var SOIChunk = false;
+    var SOIPos;
+ 
+    proc = child_process.spawn("raspistill", args);
+	
+    proc.stdout.on("data", function(chunk) {
+        if (!SOI){
+            // Start of Image (SOI) detection with: 0xFF 0xD8
+            for (var i = 0; i < chunk.length - 1; i++){
+                if (chunk.readUInt8(i) == 0xFF && chunk.readUInt8(i + 1) == 0xD8 && !SOI){
+                    SOI = true;
+                    SOIChunk = true;
+                    SOIPos = i;
+                }
+            }
+        }
+ 
+        if (SOI){
+            if (SOIChunk){
+ 				blob = Buffer.from(chunk.slice(SOIPos, chunk.length));
+                SOIChunk = false;
+            } else{
+				blob = Buffer.concat([blob, chunk]);
 			}
-			console.log('message sent: %s', info.messageId);
-			shooting = false;
-			console.log( "Watching" );
-		})
-	});
+        }
+ 
+        if (chunk.readUInt8(chunk.length - 2) == 0xFF && chunk.readUInt8(chunk.length - 1) == 0xD9 && SOI){
+            var pic = blob.toString("base64");
+            SOI = false;
+			//sendpicbymail( pic );
+			post_pic( pic );
+        }
+    });
+ 
+    proc.stderr.on("data", function(err) {
+        console.log(err.toString());
+    })
+}
+
+function post_pic( base64pic ){
+	var formData = {
+		image: base64pic,
+		timestamp: get_timestamp()
+	};
+	request.post({url: settings.server.url, formData: formData}, function optionalCallback(err, httpResponse, body) {
+		if (err) {
+			return console.error('upload failed:', err);
+		}
+		var picurl = settings.server.url + JSON.parse(httpResponse.body);
+		sendpicbymail( '', picurl );
+		console.log( 'Upload successful:' + picurl );
+        console.log( "Watching" );
+		shooting = false;
+	});	
+}
+
+function sendpicbymail( base64pic, alert_only ){
+	transport = nodemailer.createTransport( settings.email );	
+	mailOptions = settings.mailOptions;
+
+    mailOptions.subject = "Alerte intrusion " + get_timestamp();
+	
+	if( alert_only ){
+		mailOptions.html = "<a href='"+settings.server.url+"'><img src='" + alert_only + "'/></a>";
+	} else {
+		mailOptions.html = "<img src='data:image/jpeg;base64," + base64pic + "'/>";
+	}  
+
+    // sendmail
+    transport.sendMail(mailOptions, (error, info) => {
+        if (error) {
+            return console.error(error);
+        }
+        console.log('message sent: %s', info.messageId);
+        shooting = false;
+        console.log( "Watching" );
+    })	
+}
+
+
+function get_timestamp(){
+    const dtFormat = new Intl.DateTimeFormat('fr-FR', {
+      timeStyle: 'medium',
+      dateStyle: 'medium'
+    });
+
+	return dtFormat.format( new Date() );	
 }
 
 console.log('Rodocam running');
 console.log( "Watching" );
- 
+
 function exit() {
   pir.unexport();
   process.exit();
