@@ -22,7 +22,7 @@ Hardware:
 <img src="pan-head-screw.jpg" width="200">
 
 - double-sided adhesive tape
-<img src="double-sided-adhesive-tapes" width="200">
+<img src="double-sided-adhesive-tapes.jpg" width="200">
 
 1. plug PIR vcc to RPI pin#4 (5v power)
 2. plug PIR gnd to RPI pin#6 (Ground)
