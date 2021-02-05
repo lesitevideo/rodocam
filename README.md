@@ -10,3 +10,5 @@
 
 usage :
 `node index.js`
+
+<img src="hardware/rodocamV1.jpg" width="100%" />
