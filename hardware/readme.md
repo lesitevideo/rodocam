@@ -18,6 +18,12 @@ Hardware:
 - 1 x USB-C 5v 3a alim.
 <img src="alim5v3a.jpg" width="200">
 
+- 4 x pan head screws
+<img src="pan-head-screw.jpg" width="200">
+
+- double-sided adhesive tape
+<img src="double-sided-adhesive-tapes" width="200">
+
 1. plug PIR vcc to RPI pin#4 (5v power)
 2. plug PIR gnd to RPI pin#6 (Ground)
 3. plug PIR signal to RPI pin#11 (GPIO 17)
